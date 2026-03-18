@@ -1,0 +1,1 @@
+0 8 * * * cd /Users/jozef/Documents/Staima/bots/lead-scraper && /usr/bin/python3 main.py >> /Users/jozef/Documents/Staima/bots/lead-scraper/logs/cron.log 2>&1

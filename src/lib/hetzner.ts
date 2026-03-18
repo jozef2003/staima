@@ -36,6 +36,15 @@ interface ServerConfig {
   anthropicKey?: string
   openaiKey?: string
   messagingChannel?: string  // 'telegram' | 'slack' | 'whatsapp'
+  bots?: BotDeployConfig[]   // Sub-bots to deploy alongside Marlene
+}
+
+interface BotDeployConfig {
+  name: string
+  repo?: string             // Git repo URL to clone
+  runtime: 'python' | 'node'
+  schedule?: string          // systemd timer OnCalendar format, e.g. '*-*-* 08:00:00'
+  envVars?: Record<string, string>
 }
 
 function generateCloudInit(config: ServerConfig): string {
@@ -125,7 +134,93 @@ runcmd:
       "deployed_at": "$(date -Iseconds)"
     }
     STATUSEOF
+${generateBotDeployCommands(config.bots || [])}
 `
+}
+
+function generateBotDeployCommands(bots: BotDeployConfig[]): string {
+  if (bots.length === 0) return ''
+
+  const lines: string[] = []
+
+  for (const bot of bots) {
+    const safeName = bot.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+    const botDir = `/opt/bots/${safeName}`
+
+    lines.push(`  # --- Sub-Bot: ${bot.name} ---`)
+
+    // Python runtime setup (only once)
+    if (bot.runtime === 'python') {
+      lines.push(`  - apt-get install -y python3 python3-pip python3-venv`)
+    }
+
+    // Create bot directory & clone or copy
+    lines.push(`  - mkdir -p ${botDir}`)
+    if (bot.repo) {
+      lines.push(`  - git clone ${bot.repo} ${botDir}`)
+    }
+
+    // Env file
+    if (bot.envVars) {
+      const envContent = Object.entries(bot.envVars)
+        .map(([k, v]) => `${k}=${v}`)
+        .join('\\n')
+      lines.push(`  - echo -e "${envContent}" > ${botDir}/.env`)
+    }
+
+    // Python: venv + install
+    if (bot.runtime === 'python') {
+      lines.push(`  - python3 -m venv ${botDir}/venv`)
+      lines.push(`  - ${botDir}/venv/bin/pip install -r ${botDir}/requirements.txt`)
+    }
+
+    // NemoClaw sandbox for bot
+    lines.push(`  - nemoclaw ${safeName} connect || true`)
+
+    // Systemd service
+    const execStart = bot.runtime === 'python'
+      ? `${botDir}/venv/bin/python ${botDir}/main.py`
+      : `/usr/bin/node ${botDir}/main.js`
+
+    lines.push(`  - |`)
+    lines.push(`    cat > /etc/systemd/system/${safeName}.service << 'BOTSVC'`)
+    lines.push(`    [Unit]`)
+    lines.push(`    Description=${bot.name} (OpenClaw + NemoClaw Sub-Bot)`)
+    lines.push(`    After=network.target`)
+    lines.push(`    `)
+    lines.push(`    [Service]`)
+    lines.push(`    Type=oneshot`)
+    lines.push(`    WorkingDirectory=${botDir}`)
+    lines.push(`    EnvironmentFile=${botDir}/.env`)
+    lines.push(`    ExecStart=${execStart}`)
+    lines.push(`    `)
+    lines.push(`    [Install]`)
+    lines.push(`    WantedBy=multi-user.target`)
+    lines.push(`    BOTSVC`)
+
+    // Systemd timer (for scheduled bots)
+    if (bot.schedule) {
+      lines.push(`  - |`)
+      lines.push(`    cat > /etc/systemd/system/${safeName}.timer << 'BOTTIMER'`)
+      lines.push(`    [Unit]`)
+      lines.push(`    Description=Timer for ${bot.name}`)
+      lines.push(`    `)
+      lines.push(`    [Timer]`)
+      lines.push(`    OnCalendar=${bot.schedule}`)
+      lines.push(`    Persistent=true`)
+      lines.push(`    `)
+      lines.push(`    [Install]`)
+      lines.push(`    WantedBy=timers.target`)
+      lines.push(`    BOTTIMER`)
+      lines.push(`  - systemctl daemon-reload`)
+      lines.push(`  - systemctl enable --now ${safeName}.timer`)
+    } else {
+      lines.push(`  - systemctl daemon-reload`)
+      lines.push(`  - systemctl enable ${safeName}`)
+    }
+  }
+
+  return lines.join('\n')
 }
 
 export async function createServer(config: ServerConfig): Promise<HetznerServer> {
