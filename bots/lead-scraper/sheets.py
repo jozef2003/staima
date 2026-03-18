@@ -28,14 +28,19 @@ HEADERS = [
 ]
 
 
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+
 def get_sheet() -> gspread.Worksheet:
-    """Authenticate via OAuth and return the first worksheet."""
+    """Authenticate via Service Account and return the first worksheet."""
+    from google.oauth2.service_account import Credentials
+
     creds_path = BOT_DIR / "credentials.json"
-    token_path = BOT_DIR / "authorized_user.json"
-    client = gspread.oauth(
-        credentials_filename=str(creds_path),
-        authorized_user_filename=str(token_path),
-    )
+    credentials = Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
+    client = gspread.authorize(credentials)
     spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
     worksheet = spreadsheet.sheet1
 
