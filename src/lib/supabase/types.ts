@@ -91,6 +91,11 @@ export interface Database {
         Insert: Omit<Client, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Omit<Client, 'id' | 'created_at' | 'updated_at'>>
       }
+      bots: {
+        Row: Bot
+        Insert: Omit<Bot, 'id' | 'created_at'>
+        Update: Partial<Omit<Bot, 'id' | 'created_at'>>
+      }
       workflows: {
         Row: Workflow
         Insert: Omit<Workflow, 'id' | 'created_at'>

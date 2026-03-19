@@ -40,6 +40,7 @@ const aiModels = [
 
 function OrgNode({ bot, isRoot }: { bot: Bot; isRoot?: boolean }) {
   const status = botStatusConfig[bot.status] || botStatusConfig.offline
+  const port = bot.role?.match(/[Pp]ort\s+(\d{4,5})/)?.[1] ?? null
 
   return (
     <div className={cn(
@@ -99,8 +100,8 @@ function OrgNode({ bot, isRoot }: { bot: Bot; isRoot?: boolean }) {
         )}
       </div>
 
-      {/* Model + Channel */}
-      <div className="flex items-center gap-2 mt-1.5">
+      {/* Model + Channel + Port */}
+      <div className="flex items-center gap-2 mt-1.5 flex-wrap justify-center">
         <span className="text-[10px] text-muted-foreground font-mono">{bot.ai_model}</span>
         {bot.messaging_channel && (
           <>
@@ -108,13 +109,68 @@ function OrgNode({ bot, isRoot }: { bot: Bot; isRoot?: boolean }) {
             <span className="text-[10px] text-muted-foreground capitalize">{bot.messaging_channel}</span>
           </>
         )}
+        {port && (
+          <>
+            <span className="text-[10px] text-muted-foreground">·</span>
+            <span className="text-[10px] font-mono text-primary/70">:{port}</span>
+          </>
+        )}
       </div>
     </div>
   )
 }
 
+function BotTree({ root, getChildren }: { root: Bot; getChildren: (name: string) => Bot[] }) {
+  const children = getChildren(root.bot_name)
+  return (
+    <div className="flex flex-col items-center">
+      <OrgNode bot={root} isRoot />
+
+      {children.length > 0 && <div className="w-px h-6 bg-border" />}
+
+      {children.length > 0 && (
+        <div className="relative flex items-start">
+          {children.length > 1 && (
+            <div
+              className="absolute top-0 bg-border"
+              style={{
+                height: 1,
+                left: `calc(50% / ${children.length})`,
+                right: `calc(50% / ${children.length})`,
+              }}
+            />
+          )}
+          <div className="flex gap-6">
+            {children.map(child => {
+              const grandchildren = getChildren(child.bot_name)
+              return (
+                <div key={child.id} className="flex flex-col items-center">
+                  <div className="w-px h-4 bg-border" />
+                  <OrgNode bot={child} />
+                  {grandchildren.length > 0 && (
+                    <>
+                      <div className="w-px h-4 bg-border" />
+                      <div className="flex gap-4">
+                        {grandchildren.map(gc => (
+                          <div key={gc.id} className="flex flex-col items-center">
+                            <div className="w-px h-4 bg-border" />
+                            <OrgNode bot={gc} />
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function OrgChart({ bots, client }: { bots: Bot[]; client: Client }) {
-  // Find root bots (not assigned to another bot) and sub-bots
   const rootBots = bots.filter(b => {
     const assignedTo = (b.assigned_to || '').toLowerCase()
     return !bots.some(parent => parent.bot_name.toLowerCase() === assignedTo)
@@ -131,66 +187,36 @@ function OrgChart({ bots, client }: { bots: Bot[]; client: Client }) {
     )
   }
 
+  // Single root: center it
+  if (rootBots.length === 1) {
+    return (
+      <div className="flex justify-center">
+        <BotTree root={rootBots[0]} getChildren={getChildren} />
+      </div>
+    )
+  }
+
+  // Multiple independent roots: side by side with divider between each
   return (
-    <div className="flex flex-col items-center gap-0">
-      {rootBots.map(root => {
-        const children = getChildren(root.bot_name)
-        return (
-          <div key={root.id} className="flex flex-col items-center">
-            {/* Root node */}
-            <OrgNode bot={root} isRoot />
-
-            {/* Connector line down from root */}
-            {children.length > 0 && (
-              <div className="w-px h-6 bg-border" />
-            )}
-
-            {/* Children row */}
-            {children.length > 0 && (
-              <div className="relative flex items-start">
-                {/* Horizontal connector bar */}
-                {children.length > 1 && (
-                  <div
-                    className="absolute top-0 bg-border"
-                    style={{
-                      height: 1,
-                      left: `calc(50% / ${children.length})`,
-                      right: `calc(50% / ${children.length})`,
-                    }}
-                  />
-                )}
-                <div className="flex gap-6">
-                  {children.map(child => {
-                    const grandchildren = getChildren(child.bot_name)
-                    return (
-                      <div key={child.id} className="flex flex-col items-center">
-                        {/* Vertical connector from horizontal bar to child */}
-                        <div className="w-px h-4 bg-border" />
-                        <OrgNode bot={child} />
-
-                        {/* Grandchildren */}
-                        {grandchildren.length > 0 && (
-                          <>
-                            <div className="w-px h-4 bg-border" />
-                            <div className="flex gap-4">
-                              {grandchildren.map(gc => (
-                                <div key={gc.id} className="flex flex-col items-center">
-                                  <div className="w-px h-4 bg-border" />
-                                  <OrgNode bot={gc} />
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
+    <div className="flex items-start justify-center gap-0 flex-wrap">
+      {rootBots.map((root, idx) => (
+        <div key={root.id} className="flex items-start">
+          {/* Each independent system in its own padded column */}
+          <div className="flex flex-col items-center px-8">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/50 mb-4 font-medium">
+              System {idx + 1}
+            </span>
+            <BotTree root={root} getChildren={getChildren} />
           </div>
-        )
-      })}
+
+          {/* Vertical divider between systems */}
+          {idx < rootBots.length - 1 && (
+            <div className="self-stretch flex items-center">
+              <div className="w-px bg-border/60 mx-2" style={{ minHeight: 120 }} />
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
