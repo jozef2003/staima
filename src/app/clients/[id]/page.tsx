@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getClient, getClientWorkflows, getClientDeploymentLogs, getClientInvoices, getClientBots } from '@/lib/data'
 import { ClientOverview } from '@/components/client/client-overview'
 import { ClientMarlene } from '@/components/client/client-marlene'
+import { ClientChat } from '@/components/client/client-chat'
 import { ClientWorkflows } from '@/components/client/client-workflows'
 import { ClientTimeTracking } from '@/components/client/client-time-tracking'
 import { ClientInvoices } from '@/components/client/client-invoices'
@@ -39,6 +40,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <TabsList className="bg-card border border-border">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="marlene">Agent</TabsTrigger>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="workflows">Skills</TabsTrigger>
           <TabsTrigger value="time">Aktivitäten</TabsTrigger>
           <TabsTrigger value="invoices">Rechnungen</TabsTrigger>
@@ -50,6 +52,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
         <TabsContent value="marlene">
           <ClientMarlene client={client} />
+        </TabsContent>
+
+        <TabsContent value="chat">
+          <ClientChat bots={bots} />
         </TabsContent>
 
         <TabsContent value="workflows">

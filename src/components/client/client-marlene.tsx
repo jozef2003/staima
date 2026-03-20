@@ -5,16 +5,7 @@ import Image from 'next/image'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Copy, Server, Terminal, Radio, Shield, Rocket, Loader2, Plus, Bot as BotIcon, Zap } from 'lucide-react'
+import { Copy, Server, Shield, Bot as BotIcon, Zap, HardDrive } from 'lucide-react'
 import type { Client, Bot } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
 
@@ -28,13 +19,6 @@ const botStatusConfig: Record<string, { label: string; dotClass: string; color: 
   error: { label: 'Fehler', dotClass: 'status-error', color: 'bg-red-500' },
   offline: { label: 'Offline', dotClass: 'status-not-deployed', color: 'bg-zinc-500' },
 }
-
-const aiModels = [
-  { value: 'claude-sonnet-4', label: 'Claude Sonnet 4', description: 'Empfohlen' },
-  { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', description: 'Schnell & günstig' },
-  { value: 'gpt-4o', label: 'GPT-4o (OpenAI)', description: 'Alternative' },
-  { value: 'local', label: 'Lokales Modell', description: 'Nemotron via NemoClaw' },
-]
 
 // ─── Organigramm ────────────────────────────────────────────
 
@@ -234,133 +218,13 @@ function BotDetail({ bot, client }: { bot: Bot; client: Client }) {
         <span className="font-medium">{bot.bot_name}</span>
         {bot.sandbox_name && <code className="text-[10px] font-mono text-muted-foreground">{bot.sandbox_name}</code>}
       </div>
-      <div className="flex items-center gap-2">
-        {serverIp && (
-          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground" onClick={() => copyToClipboard(`ssh root@${serverIp}`)}>
-            <Copy className="h-3 w-3" />
-            SSH
-          </Button>
-        )}
-        {bot.sandbox_name && (
-          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground" onClick={() => copyToClipboard(`nemoclaw ${bot.sandbox_name} status`)}>
-            <Terminal className="h-3 w-3" />
-            Status
-          </Button>
-        )}
-      </div>
+      {serverIp && (
+        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-muted-foreground" onClick={() => copyToClipboard(`ssh root@${serverIp}`)}>
+          <Copy className="h-3 w-3" />
+          SSH
+        </Button>
+      )}
     </div>
-  )
-}
-
-// ─── Add Bot Form ───────────────────────────────────────────
-
-function AddBotForm({ client, bots, onAdded }: { client: Client; bots: Bot[]; onAdded: () => void }) {
-  const [open, setOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [botName, setBotName] = useState('')
-  const [role, setRole] = useState('')
-  const [assignedTo, setAssignedTo] = useState('')
-  const [aiModel, setAiModel] = useState('claude-sonnet-4')
-  const [channel, setChannel] = useState('telegram')
-
-  async function handleSubmit() {
-    if (!botName) return
-    setSaving(true)
-    try {
-      if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        const { supabase } = await import('@/lib/supabase/client')
-        await (supabase.from('bots') as any).insert({
-          client_id: client.id,
-          bot_name: botName,
-          ai_model: aiModel,
-          status: 'offline',
-          server_ip: client.vps_ip,
-          messaging_channel: channel,
-          assigned_to: assignedTo || null,
-          role: role || null,
-        })
-      }
-      setBotName('')
-      setRole('')
-      setAssignedTo('')
-      setOpen(false)
-      onAdded()
-    } catch {
-      alert('Fehler beim Erstellen')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (!open) {
-    return (
-      <Button variant="secondary" className="w-full gap-2 border-dashed" onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" />
-        Neuen Bot hinzufügen
-      </Button>
-    )
-  }
-
-  return (
-    <Card className="p-5 bg-card border-primary/30">
-      <h4 className="text-sm font-semibold mb-4">Neuen Bot erstellen</h4>
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Bot-Name *</Label>
-            <Input placeholder="z.B. Clara" value={botName} onChange={e => setBotName(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Rolle</Label>
-            <Input placeholder="z.B. Sales Assistentin" value={role} onChange={e => setRole(e.target.value)} />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Zugewiesen an</Label>
-            <Select value={assignedTo} onValueChange={v => setAssignedTo(v || '')}>
-              <SelectTrigger><SelectValue placeholder="Eigenständig" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Eigenständig</SelectItem>
-                {bots.map(b => (
-                  <SelectItem key={b.id} value={b.bot_name}>{b.bot_name} (Sub-Bot)</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">AI-Modell</Label>
-            <Select value={aiModel} onValueChange={v => v && setAiModel(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {aiModels.map(m => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Channel</Label>
-          <Select value={channel} onValueChange={v => v && setChannel(v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="telegram">Telegram</SelectItem>
-              <SelectItem value="whatsapp">WhatsApp</SelectItem>
-              <SelectItem value="slack">Slack</SelectItem>
-              <SelectItem value="discord">Discord</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex gap-2 pt-2">
-          <Button onClick={handleSubmit} disabled={saving || !botName} className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
-            {saving ? 'Wird erstellt...' : 'Bot erstellen'}
-          </Button>
-          <Button variant="secondary" onClick={() => setOpen(false)}>Abbrechen</Button>
-        </div>
-      </div>
-    </Card>
   )
 }
 
@@ -393,8 +257,28 @@ export function ClientMarlene({ client }: { client: Client }) {
           <BotIcon className="h-4 w-4 text-muted-foreground" />
           Bot-Organigramm
         </h3>
-        <Card className="p-8 bg-card border-border overflow-x-auto">
-          <OrgChart bots={bots} client={client} />
+        <Card className="bg-card border-border overflow-x-auto">
+          {/* Server Label */}
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
+            <HardDrive className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span className="text-xs font-mono text-muted-foreground">
+              {client.vps_provider && <span className="text-foreground/70 mr-2">{client.vps_provider}</span>}
+              {client.vps_ip ?? 'Kein Server'}
+            </span>
+            {client.vps_ip && (
+              <span className={cn(
+                'ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-medium',
+                client.vps_status === 'active'
+                  ? 'bg-emerald-500/10 text-emerald-500'
+                  : 'bg-muted text-muted-foreground'
+              )}>
+                {client.vps_status}
+              </span>
+            )}
+          </div>
+          <div className="p-8">
+            <OrgChart bots={bots} client={client} />
+          </div>
         </Card>
       </div>
 
@@ -411,7 +295,6 @@ export function ClientMarlene({ client }: { client: Client }) {
               <BotDetail key={bot.id} bot={bot} client={client} />
             ))}
           </div>
-          <AddBotForm client={client} bots={bots} onAdded={loadBots} />
         </div>
 
         {/* Server Info & Policies */}
@@ -420,30 +303,15 @@ export function ClientMarlene({ client }: { client: Client }) {
             <h3 className="text-sm font-semibold mb-4">Quick Actions</h3>
             <div className="space-y-2">
               {serverIp ? (
-                <>
-                  <Button variant="secondary" className="w-full justify-start gap-2 text-sm" onClick={() => copyToClipboard(`ssh root@${serverIp}`)}>
-                    <Copy className="h-3.5 w-3.5" />
-                    SSH zu VPS kopieren
-                  </Button>
-                  <Button variant="secondary" className="w-full justify-start gap-2 text-sm" onClick={() => copyToClipboard(`nemoclaw list`)}>
-                    <Terminal className="h-3.5 w-3.5" />
-                    Alle Sandboxes listen
-                  </Button>
-                </>
+                <Button variant="secondary" className="w-full justify-start gap-2 text-sm" onClick={() => copyToClipboard(`ssh root@${serverIp}`)}>
+                  <Copy className="h-3.5 w-3.5" />
+                  SSH zu VPS kopieren
+                </Button>
               ) : (
                 <p className="text-sm text-muted-foreground">Kein Server zugewiesen.</p>
               )}
             </div>
 
-            {serverIp && (
-              <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border">
-                <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Befehle</p>
-                <pre className="text-xs font-mono text-foreground/80 whitespace-pre-wrap">{`ssh root@${serverIp}
-nemoclaw list
-openclaw status
-openclaw channels status`}</pre>
-              </div>
-            )}
           </Card>
 
           <Card className="p-5 bg-card border-border">

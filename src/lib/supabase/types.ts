@@ -80,6 +80,8 @@ export interface Bot {
   messaging_channel: string | null
   assigned_to: string | null
   role: string | null
+  gateway_url: string | null
+  gateway_token: string | null
   created_at: string
 }
 

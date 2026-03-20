@@ -177,6 +177,8 @@ export const mockBots: Bot[] = [
     messaging_channel: 'slack',
     assigned_to: 'Sarah Weber',
     role: 'Marketing Assistentin',
+    gateway_url: null,
+    gateway_token: null,
     created_at: '2026-01-15T10:00:00Z',
   },
   {
@@ -192,6 +194,8 @@ export const mockBots: Bot[] = [
     messaging_channel: 'slack',
     assigned_to: 'Tom Müller',
     role: 'Sales Support',
+    gateway_url: null,
+    gateway_token: null,
     created_at: '2026-02-01T10:00:00Z',
   },
 ]

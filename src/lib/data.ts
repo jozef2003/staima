@@ -29,7 +29,7 @@ export async function getClientBots(clientId: string): Promise<Bot[]> {
   const sb = await getSupabase()
   if (!sb) return mockBots.filter(b => b.client_id === clientId)
   const { data, error } = await sb.from('bots').select('*').eq('client_id', clientId).order('created_at', { ascending: true })
-  if (error) throw error
+  if (error) { console.error('getClientBots:', error); return [] }
   return data
 }
 
@@ -37,7 +37,7 @@ export async function getAllBots(): Promise<Bot[]> {
   const sb = await getSupabase()
   if (!sb) return mockBots
   const { data, error } = await sb.from('bots').select('*').order('created_at', { ascending: true })
-  if (error) throw error
+  if (error) { console.error('getAllBots:', error); return [] }
   return data
 }
 
@@ -45,7 +45,7 @@ export async function getClientWorkflows(clientId: string): Promise<Workflow[]> 
   const sb = await getSupabase()
   if (!sb) return mockWorkflows.filter(w => w.client_id === clientId)
   const { data, error } = await sb.from('workflows').select('*').eq('client_id', clientId).order('created_at', { ascending: true })
-  if (error) throw error
+  if (error) { console.error('getClientWorkflows:', error); return [] }
   return data
 }
 
@@ -53,7 +53,7 @@ export async function getClientDeploymentLogs(clientId: string): Promise<Deploym
   const sb = await getSupabase()
   if (!sb) return mockDeploymentLogs.filter(d => d.client_id === clientId)
   const { data, error } = await sb.from('deployment_log').select('*').eq('client_id', clientId).order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) { console.error('getClientDeploymentLogs:', error); return [] }
   return data
 }
 
@@ -61,7 +61,7 @@ export async function getClientInvoices(clientId: string): Promise<Invoice[]> {
   const sb = await getSupabase()
   if (!sb) return mockInvoices.filter(i => i.client_id === clientId)
   const { data, error } = await sb.from('invoices').select('*').eq('client_id', clientId).order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) { console.error('getClientInvoices:', error); return [] }
   return data
 }
 
@@ -69,7 +69,7 @@ export async function getAllWorkflows(): Promise<Workflow[]> {
   const sb = await getSupabase()
   if (!sb) return mockWorkflows
   const { data, error } = await sb.from('workflows').select('*').order('created_at', { ascending: true })
-  if (error) throw error
+  if (error) { console.error('getAllWorkflows:', error); return [] }
   return data
 }
 
@@ -77,7 +77,7 @@ export async function getAllDeploymentLogs(): Promise<DeploymentLog[]> {
   const sb = await getSupabase()
   if (!sb) return mockDeploymentLogs
   const { data, error } = await sb.from('deployment_log').select('*').order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) { console.error('getAllDeploymentLogs:', error); return [] }
   return data
 }
 
@@ -85,7 +85,7 @@ export async function getAllInvoices(): Promise<Invoice[]> {
   const sb = await getSupabase()
   if (!sb) return mockInvoices
   const { data, error } = await sb.from('invoices').select('*').order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) { console.error('getAllInvoices:', error); return [] }
   return data
 }
 
