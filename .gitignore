@@ -48,3 +48,8 @@ bots/lead-scraper/authorized_user.json
 bots/lead-scraper/.env
 bots/lead-scraper/rotation_state.json
 bots/lead-scraper/logs/
+
+# OAuth tokens (sensitive)
+bots/**/authorized_user.json
+bots/**/gogcli_token.json
+bots/**/client_secret.json

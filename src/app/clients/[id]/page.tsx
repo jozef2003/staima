@@ -2,24 +2,22 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getClient, getClientWorkflows, getClientDeploymentLogs, getClientInvoices, getClientBots } from '@/lib/data'
+import { getClient, getClientWorkflows, getClientDeploymentLogs, getClientBots } from '@/lib/data'
 import { ClientOverview } from '@/components/client/client-overview'
 import { ClientMarlene } from '@/components/client/client-marlene'
 import { ClientChat } from '@/components/client/client-chat'
 import { ClientWorkflows } from '@/components/client/client-workflows'
 import { ClientTimeTracking } from '@/components/client/client-time-tracking'
-import { ClientInvoices } from '@/components/client/client-invoices'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [client, bots, workflows, logs, invoices] = await Promise.all([
+  const [client, bots, workflows, logs] = await Promise.all([
     getClient(id),
     getClientBots(id),
     getClientWorkflows(id),
     getClientDeploymentLogs(id),
-    getClientInvoices(id),
   ])
 
   if (!client) notFound()
@@ -43,7 +41,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="workflows">Skills</TabsTrigger>
           <TabsTrigger value="time">Aktivitäten</TabsTrigger>
-          <TabsTrigger value="invoices">Rechnungen</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -66,9 +63,6 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <ClientTimeTracking client={client} logs={logs} />
         </TabsContent>
 
-        <TabsContent value="invoices">
-          <ClientInvoices client={client} invoices={invoices} />
-        </TabsContent>
       </Tabs>
     </div>
   )
