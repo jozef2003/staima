@@ -25,6 +25,7 @@ export interface Client {
   messaging_channel: string | null
   marlene_status: MarleneStatus
   notes: string | null
+  auth_user_id: string | null
   created_at: string
   updated_at: string
 }

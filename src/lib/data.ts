@@ -81,6 +81,22 @@ export async function getAllDeploymentLogs(): Promise<DeploymentLog[]> {
   return data
 }
 
+export async function getClientServers(clientId: string): Promise<{ id: string; ip: string; label: string | null; provider: string | null; status: string }[]> {
+  const sb = await getSupabase()
+  if (!sb) return []
+  const { data, error } = await sb.from('servers').select('id, ip, label, provider, status').eq('client_id', clientId)
+  if (error) { console.error('getClientServers:', error); return [] }
+  return data
+}
+
+export async function getAllServers(): Promise<{ id: string; client_id: string; ip: string; label: string | null; provider: string | null; status: string }[]> {
+  const sb = await getSupabase()
+  if (!sb) return []
+  const { data, error } = await sb.from('servers').select('*')
+  if (error) { console.error('getAllServers:', error); return [] }
+  return data
+}
+
 export async function getAllInvoices(): Promise<Invoice[]> {
   const sb = await getSupabase()
   if (!sb) return mockInvoices

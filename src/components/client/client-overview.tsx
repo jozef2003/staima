@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Mail, Phone, Building2, User, Wifi, WifiOff, Server, Bot as BotIcon, Cpu, HardDrive, MemoryStick } from 'lucide-react'
+import { Mail, Phone, Building2, User, Wifi, WifiOff, Server, Bot as BotIcon, Cpu, HardDrive, MemoryStick, KeyRound, UserPlus, Trash2, Check } from 'lucide-react'
 import type { Client, Bot } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
 
@@ -82,6 +82,8 @@ type ServerStats = {
   cpu: { used: number }
 }
 
+type ServerEntry = { ip: string; label: string | null; provider: string | null; status: string }
+
 function StatBar({ value, label, icon }: { value: number; label: string; icon: React.ReactNode }) {
   const color = value > 85 ? 'bg-red-500' : value > 65 ? 'bg-amber-500' : 'bg-teal-500'
   return (
@@ -101,16 +103,30 @@ function fmt(bytes: number) {
   return bytes > 1e9 ? `${(bytes / 1e9).toFixed(1)}GB` : `${(bytes / 1e6).toFixed(0)}MB`
 }
 
-function ServerHealthCheck({ client, bots, liveStatuses }: { client: Client; bots: Bot[]; liveStatuses: Record<string, string> }) {
+const STATS_URL_MAP: Record<string, string> = {
+  '159.69.221.169': 'https://myty.agency/twilio/stats',
+  '178.104.79.158': 'http://178.104.79.158:3002/stats',
+  '94.130.99.75':   'http://94.130.99.75:3002/stats',
+}
+
+function ServerHealthCheck({ entry, bots, liveStatuses, primaryIp }: {
+  entry: ServerEntry
+  bots: Bot[]
+  liveStatuses: Record<string, string>
+  primaryIp: string | null
+}) {
   const [stats, setStats] = useState<ServerStats | null>(null)
-  const onlineBots = bots.filter(b => (liveStatuses[b.id] ?? b.status) === 'online')
-  const hasServer = client.vps_ip || bots.some(b => b.server_ip)
-  const serverIp = client.vps_ip || bots.find(b => b.server_ip)?.server_ip
-  const serverOnline = onlineBots.length > 0
+
+  // Bots assigned to this server (or unassigned bots default to primary)
+  const serverBots = bots.filter(b =>
+    b.server_ip === entry.ip || (!b.server_ip && entry.ip === primaryIp)
+  )
+  const onlineBots = serverBots.filter(b => (liveStatuses[b.id] ?? b.status) === 'online')
+  const isActive = entry.status === 'active'
+  const statsUrl = STATS_URL_MAP[entry.ip] ?? null
 
   useEffect(() => {
-    if (!serverIp) return
-    const statsUrl = `https://myty.agency/twilio/stats`
+    if (!statsUrl) return
     const fetchStats = async () => {
       try {
         const res = await fetch(`/api/server-stats?url=${encodeURIComponent(statsUrl)}`)
@@ -120,7 +136,7 @@ function ServerHealthCheck({ client, bots, liveStatuses }: { client: Client; bot
     fetchStats()
     const interval = setInterval(fetchStats, 30000)
     return () => clearInterval(interval)
-  }, [serverIp])
+  }, [statsUrl])
 
   const ramPct = stats ? Math.round(stats.ram.used / stats.ram.total * 100) : null
   const diskPct = stats ? Math.round(stats.disk.used / stats.disk.total * 100) : null
@@ -130,10 +146,12 @@ function ServerHealthCheck({ client, bots, liveStatuses }: { client: Client; bot
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Server className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">Server</h3>
+          <h3 className="text-sm font-semibold">
+            Server{entry.label ? ` · ${entry.label}` : ''}
+          </h3>
         </div>
         <div className="flex items-center gap-2">
-          {hasServer && serverOnline ? (
+          {isActive && onlineBots.length > 0 ? (
             <>
               <div className="status-dot status-active" />
               <Badge variant="secondary" className="bg-teal-500/10 text-teal-500 text-xs border-teal-500/20">
@@ -146,19 +164,17 @@ function ServerHealthCheck({ client, bots, liveStatuses }: { client: Client; bot
               <div className="status-dot status-not-deployed" />
               <Badge variant="secondary" className="text-xs text-muted-foreground">
                 <WifiOff className="h-3 w-3 mr-1" />
-                {hasServer ? 'Offline' : 'Kein Server'}
+                {isActive ? 'Keine Bots' : 'Offline'}
               </Badge>
             </>
           )}
         </div>
       </div>
-      {serverIp && (
-        <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="font-mono">{serverIp}</span>
-          {client.vps_provider && <span>{client.vps_provider}</span>}
-          <span>{onlineBots.length}/{bots.length} Bots online</span>
-        </div>
-      )}
+      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="font-mono">{entry.ip}</span>
+        {entry.provider && <span>{entry.provider}</span>}
+        {serverBots.length > 0 && <span>{onlineBots.length}/{serverBots.length} Bots online</span>}
+      </div>
       {stats && (
         <div className="mt-4 space-y-2.5">
           <StatBar value={stats.cpu.used} label={`CPU · ${stats.cpu.used}%`} icon={<Cpu className="h-3 w-3" />} />
@@ -170,7 +186,174 @@ function ServerHealthCheck({ client, bots, liveStatuses }: { client: Client; bot
   )
 }
 
-export function ClientOverview({ client, bots }: { client: Client; bots: Bot[] }) {
+function PortalAccessCard({ client }: { client: Client }) {
+  const [mode, setMode] = useState<'view' | 'create' | 'password'>('view')
+  const [email, setEmail] = useState(client.contact_email || '')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const hasAccess = !!client.auth_user_id
+
+  async function createUser(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    const res = await fetch('/api/admin/portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: client.id, email, password }),
+    })
+    const data = await res.json()
+    setLoading(false)
+    if (data.error) { setMsg(data.error); return }
+    setMsg('Zugang erstellt!')
+    setMode('view')
+    setTimeout(() => window.location.reload(), 1000)
+  }
+
+  async function updatePassword(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    const res = await fetch('/api/admin/portal', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: client.auth_user_id, password }),
+    })
+    const data = await res.json()
+    setLoading(false)
+    if (data.error) { setMsg(data.error); return }
+    setMsg('Passwort geändert!')
+    setPassword('')
+    setMode('view')
+  }
+
+  async function removeAccess() {
+    if (!confirm('Zugang wirklich entfernen?')) return
+    setLoading(true)
+    await fetch('/api/admin/portal', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: client.id, userId: client.auth_user_id }),
+    })
+    setLoading(false)
+    window.location.reload()
+  }
+
+  return (
+    <Card className="p-5 bg-card border-border">
+      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+        <KeyRound className="h-4 w-4 text-muted-foreground" />
+        Portal-Zugang
+      </h3>
+
+      {msg && (
+        <div className="flex items-center gap-1.5 text-xs text-teal-400 mb-3">
+          <Check className="h-3 w-3" /> {msg}
+        </div>
+      )}
+
+      {mode === 'view' && (
+        <div className="space-y-3">
+          {hasAccess ? (
+            <>
+              <p className="text-xs text-teal-400 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 inline-block" />
+                Aktiv
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setMode('password'); setMsg('') }}
+                  className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors"
+                >
+                  Passwort ändern
+                </button>
+                <button
+                  onClick={removeAccess}
+                  disabled={loading}
+                  className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">Kein Zugang</p>
+              <button
+                onClick={() => { setMode('create'); setMsg('') }}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors"
+              >
+                <UserPlus className="h-3 w-3" />
+                Zugang erstellen
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {mode === 'create' && (
+        <form onSubmit={createUser} className="space-y-2">
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="E-Mail"
+            required
+            className="w-full px-2.5 py-1.5 rounded border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Passwort"
+            required
+            minLength={8}
+            className="w-full px-2.5 py-1.5 rounded border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <div className="flex gap-2">
+            <button type="submit" disabled={loading}
+              className="text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              {loading ? '...' : 'Erstellen'}
+            </button>
+            <button type="button" onClick={() => setMode('view')}
+              className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors">
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      )}
+
+      {mode === 'password' && (
+        <form onSubmit={updatePassword} className="space-y-2">
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Neues Passwort"
+            required
+            minLength={8}
+            className="w-full px-2.5 py-1.5 rounded border border-border bg-background text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          <div className="flex gap-2">
+            <button type="submit" disabled={loading}
+              className="text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">
+              {loading ? '...' : 'Speichern'}
+            </button>
+            <button type="button" onClick={() => setMode('view')}
+              className="text-xs px-3 py-1.5 rounded border border-border hover:bg-accent transition-colors">
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      )}
+    </Card>
+  )
+}
+
+export function ClientOverview({ client, bots, isAdmin = false, servers = [] }: {
+  client: Client; bots: Bot[]; isAdmin?: boolean
+  servers?: { id: string; ip: string; label: string | null; provider: string | null; status: string }[]
+}) {
   const [liveStatuses, setLiveStatuses] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -195,9 +378,20 @@ export function ClientOverview({ client, bots }: { client: Client; bots: Bot[] }
     return () => clearInterval(interval)
   }, [bots])
 
+  // Collect all unique server IPs for this client
+  const allServers: ServerEntry[] = []
+  if (client.vps_ip) {
+    allServers.push({ ip: client.vps_ip, label: null, provider: client.vps_provider, status: client.vps_status })
+  }
+  for (const s of servers) {
+    if (!allServers.some(e => e.ip === s.ip)) {
+      allServers.push({ ip: s.ip, label: s.label, provider: s.provider, status: s.status })
+    }
+  }
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
-      {/* Bots + Server */}
+      {/* Bots + Servers */}
       <div className="space-y-6">
         {/* Bots */}
         <div>
@@ -222,8 +416,24 @@ export function ClientOverview({ client, bots }: { client: Client; bots: Bot[] }
           )}
         </div>
 
-        {/* Server */}
-        <ServerHealthCheck client={client} bots={bots} liveStatuses={liveStatuses} />
+        {/* Server cards (one per server) */}
+        {allServers.length > 0 ? allServers.map(entry => (
+          <ServerHealthCheck
+            key={entry.ip}
+            entry={entry}
+            bots={bots}
+            liveStatuses={liveStatuses}
+            primaryIp={client.vps_ip}
+          />
+        )) : (
+          <Card className="p-5 bg-card border-border">
+            <div className="flex items-center gap-3">
+              <Server className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Server</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Kein Server zugewiesen.</p>
+          </Card>
+        )}
       </div>
 
       {/* Contact Info */}
@@ -255,18 +465,16 @@ export function ClientOverview({ client, bots }: { client: Client; bots: Bot[] }
             </div>
           </div>
 
-          {client.notes && (
+          {isAdmin && client.notes && (
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-xs text-muted-foreground mb-1">Notizen</p>
               <p className="text-sm">{client.notes}</p>
             </div>
           )}
 
-          <div className="mt-4 pt-4 border-t border-border flex gap-2">
-            <Badge variant="secondary">{client.monthly_fee > 0 ? `€${client.monthly_fee}/Mo` : 'Kein MRR'}</Badge>
-            {client.setup_fee > 0 && <Badge variant="secondary">Setup: €{client.setup_fee}</Badge>}
-          </div>
         </Card>
+
+        {isAdmin && <PortalAccessCard client={client} />}
       </div>
     </div>
   )

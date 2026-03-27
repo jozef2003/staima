@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { WebSocket } from 'ws'
 
-const WS_TIMEOUT = 45_000
+const WS_TIMEOUT = 120_000
 
 function toWsUrl(gatewayUrl: string): string {
   // Keep trailing slash — nginx proxy requires it

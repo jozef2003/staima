@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Copy, Server, Shield, Bot as BotIcon, Zap, HardDrive } from 'lucide-react'
+import { Copy, Server, Shield, Bot as BotIcon, Zap, HardDrive, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Client, Bot } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
 
@@ -230,9 +230,12 @@ function BotDetail({ bot, client }: { bot: Bot; client: Client }) {
 
 // ─── Main Export ─────────────────────────────────────────────
 
-export function ClientMarlene({ client }: { client: Client }) {
+type ExtraServer = { id: string; ip: string; label: string | null; provider: string | null; status: string }
+
+export function ClientMarlene({ client, servers = [] }: { client: Client; servers?: ExtraServer[] }) {
   const [bots, setBots] = useState<Bot[]>([])
   const [loaded, setLoaded] = useState(false)
+  const [serverIdx, setServerIdx] = useState(0)
 
   async function loadBots() {
     if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -247,7 +250,26 @@ export function ClientMarlene({ client }: { client: Client }) {
     loadBots()
   }
 
-  const serverIp = client.vps_ip
+  // Build ordered server list: primary first, then extras
+  const allServers: Array<{ ip: string; label: string | null; provider: string | null; status: string }> = []
+  if (client.vps_ip) {
+    allServers.push({ ip: client.vps_ip, label: null, provider: client.vps_provider, status: client.vps_status })
+  }
+  for (const s of servers) {
+    if (!allServers.some(e => e.ip === s.ip)) {
+      allServers.push({ ip: s.ip, label: s.label, provider: s.provider, status: s.status })
+    }
+  }
+
+  const currentServer = allServers[serverIdx] ?? null
+
+  // Filter bots for selected server
+  const serverBots = currentServer
+    ? bots.filter(b => b.server_ip === currentServer.ip || (!b.server_ip && currentServer.ip === client.vps_ip))
+    : bots
+
+  const canPrev = serverIdx > 0
+  const canNext = serverIdx < allServers.length - 1
 
   return (
     <div className="space-y-8">
@@ -258,26 +280,48 @@ export function ClientMarlene({ client }: { client: Client }) {
           Bot-Organigramm
         </h3>
         <Card className="bg-card border-border overflow-x-auto">
-          {/* Server Label */}
+          {/* Server header with navigation */}
           <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
+            {allServers.length > 1 && (
+              <button
+                onClick={() => setServerIdx(i => i - 1)}
+                disabled={!canPrev}
+                className="p-0.5 rounded hover:bg-accent disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
             <HardDrive className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="text-xs font-mono text-muted-foreground">
-              {client.vps_provider && <span className="text-foreground/70 mr-2">{client.vps_provider}</span>}
-              {client.vps_ip ?? 'Kein Server'}
+            <span className="text-xs font-mono text-muted-foreground flex-1">
+              {currentServer?.provider && <span className="text-foreground/70 mr-2">{currentServer.provider}</span>}
+              {currentServer?.ip ?? 'Kein Server'}
+              {currentServer?.label && <span className="ml-2 text-foreground/50">({currentServer.label})</span>}
             </span>
-            {client.vps_ip && (
+            {allServers.length > 1 && (
+              <span className="text-[10px] text-muted-foreground/50">{serverIdx + 1}/{allServers.length}</span>
+            )}
+            {currentServer && (
               <span className={cn(
-                'ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-medium',
-                client.vps_status === 'active'
+                'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
+                currentServer.status === 'active'
                   ? 'bg-emerald-500/10 text-emerald-500'
                   : 'bg-muted text-muted-foreground'
               )}>
-                {client.vps_status}
+                {currentServer.status}
               </span>
+            )}
+            {allServers.length > 1 && (
+              <button
+                onClick={() => setServerIdx(i => i + 1)}
+                disabled={!canNext}
+                className="p-0.5 rounded hover:bg-accent disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             )}
           </div>
           <div className="p-8">
-            <OrgChart bots={bots} client={client} />
+            <OrgChart bots={serverBots} client={client} />
           </div>
         </Card>
       </div>
@@ -288,10 +332,10 @@ export function ClientMarlene({ client }: { client: Client }) {
         <div className="space-y-4">
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <Server className="h-4 w-4 text-muted-foreground" />
-            Alle Bots ({bots.length})
+            Bots auf diesem Server ({serverBots.length})
           </h3>
           <div className="space-y-2">
-            {bots.map(bot => (
+            {serverBots.map(bot => (
               <BotDetail key={bot.id} bot={bot} client={client} />
             ))}
           </div>
@@ -302,16 +346,15 @@ export function ClientMarlene({ client }: { client: Client }) {
           <Card className="p-5 bg-card border-border">
             <h3 className="text-sm font-semibold mb-4">Quick Actions</h3>
             <div className="space-y-2">
-              {serverIp ? (
-                <Button variant="secondary" className="w-full justify-start gap-2 text-sm" onClick={() => copyToClipboard(`ssh root@${serverIp}`)}>
+              {currentServer ? (
+                <Button variant="secondary" className="w-full justify-start gap-2 text-sm" onClick={() => copyToClipboard(`ssh root@${currentServer.ip}`)}>
                   <Copy className="h-3.5 w-3.5" />
-                  SSH zu VPS kopieren
+                  SSH kopieren · {currentServer.ip}
                 </Button>
               ) : (
                 <p className="text-sm text-muted-foreground">Kein Server zugewiesen.</p>
               )}
             </div>
-
           </Card>
 
           <Card className="p-5 bg-card border-border">
@@ -319,7 +362,7 @@ export function ClientMarlene({ client }: { client: Client }) {
               <Shield className="h-4 w-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold">NemoClaw Policies</h3>
             </div>
-            {serverIp ? (
+            {currentServer ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span>SSH (Port 22)</span>

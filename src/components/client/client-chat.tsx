@@ -85,6 +85,25 @@ function ChatMessage({ message }: { message: Message }) {
   )
 }
 
+const CALL_TAG_RE = /\[CALL:([A-Za-z0-9]+)\]/
+
+async function pollCallResult(callSid: string, onDone: (summary: string) => void) {
+  const url = `https://myty.agency/twilio/call/${callSid}`
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 3000))
+    try {
+      const res = await fetch(url)
+      if (!res.ok) continue
+      const data = await res.json()
+      if (data.done) {
+        onDone(data.result ?? 'Anruf abgeschlossen.')
+        return
+      }
+    } catch { /* ignore */ }
+  }
+  onDone('Anruf-Zusammenfassung: Timeout — bitte Telegram prüfen.')
+}
+
 export function ClientChat({ bots }: { bots: Bot[] }) {
   const [selectedBot, setSelectedBot] = useState<Bot | null>(
     bots.find(b => b.gateway_url && b.gateway_token) ?? null
@@ -134,13 +153,34 @@ export function ClientChat({ bots }: { bots: Bot[] }) {
 
       if (data.sessionKey && !sessionKey) setSessionKey(data.sessionKey)
 
+      const rawReply: string = data.reply ?? data.error ?? 'Keine Antwort.'
+      const callMatch = rawReply.match(CALL_TAG_RE)
+      const displayReply = rawReply.replace(CALL_TAG_RE, '').trim()
+
       const botMsg: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: data.reply ?? data.error ?? 'Keine Antwort.',
+        content: displayReply,
         timestamp: new Date(),
       }
       setMessages(prev => [...prev, botMsg])
+
+      // If call was triggered, poll async and append summary when done
+      if (callMatch) {
+        const callSid = callMatch[1]
+        const summaryMsgId = crypto.randomUUID()
+        setMessages(prev => [...prev, {
+          id: summaryMsgId,
+          role: 'assistant',
+          content: '📞 Anruf läuft…',
+          timestamp: new Date(),
+        }])
+        pollCallResult(callSid, (summary) => {
+          setMessages(prev => prev.map(m =>
+            m.id === summaryMsgId ? { ...m, content: `📋 ${summary}` } : m
+          ))
+        })
+      }
     } catch {
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
