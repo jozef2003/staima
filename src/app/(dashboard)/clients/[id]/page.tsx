@@ -2,11 +2,11 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { getClient, getClientBots, getClientServers } from '@/lib/data'
 import { createAuthClient } from '@/lib/supabase/ssr-client'
 import { ClientOverview } from '@/components/client/client-overview'
 import { ClientMarlene } from '@/components/client/client-marlene'
 import { ClientChat } from '@/components/client/client-chat'
+import type { Client, Bot, Server } from '@/lib/supabase/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,13 +16,16 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const { data: { user } } = await supabase.auth.getUser()
   const isAdmin = user?.email === 'jozef@staima.ai'
 
-  const [client, bots, servers] = await Promise.all([
-    getClient(id),
-    getClientBots(id),
-    getClientServers(id),
-  ])
-
+  const clientRes = await supabase.from('clients').select('*').eq('id', id).single()
+  const client = clientRes.data as Client | null
   if (!client) notFound()
+
+  const [botsRes, serversRes] = await Promise.all([
+    supabase.from('bots').select('*').eq('client_id', id).order('created_at', { ascending: true }),
+    supabase.from('servers').select('*').eq('client_id', id),
+  ])
+  const bots = (botsRes.data ?? []) as Bot[]
+  const servers = (serversRes.data ?? []) as Server[]
 
   return (
     <div className="space-y-6">

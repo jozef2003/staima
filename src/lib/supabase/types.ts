@@ -86,9 +86,24 @@ export interface Bot {
   created_at: string
 }
 
+export interface Server {
+  id: string
+  client_id: string
+  ip: string
+  label: string | null
+  provider: string | null
+  status: string
+  created_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
+      servers: {
+        Row: Server
+        Insert: Omit<Server, 'id' | 'created_at'>
+        Update: Partial<Omit<Server, 'id' | 'created_at'>>
+      }
       clients: {
         Row: Client
         Insert: Omit<Client, 'id' | 'created_at' | 'updated_at'>
