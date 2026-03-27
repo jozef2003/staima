@@ -53,7 +53,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         </TabsContent>
 
         <TabsContent value="marlene">
-          <ClientMarlene client={client} servers={servers} />
+          <ClientMarlene client={client} bots={bots} servers={servers} />
         </TabsContent>
 
         <TabsContent value="chat">

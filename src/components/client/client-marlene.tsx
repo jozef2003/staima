@@ -232,23 +232,9 @@ function BotDetail({ bot, client }: { bot: Bot; client: Client }) {
 
 type ExtraServer = { id: string; ip: string; label: string | null; provider: string | null; status: string }
 
-export function ClientMarlene({ client, servers = [] }: { client: Client; servers?: ExtraServer[] }) {
-  const [bots, setBots] = useState<Bot[]>([])
-  const [loaded, setLoaded] = useState(false)
+export function ClientMarlene({ client, bots: initialBots = [], servers = [] }: { client: Client; bots?: Bot[]; servers?: ExtraServer[] }) {
+  const [bots] = useState<Bot[]>(initialBots)
   const [serverIdx, setServerIdx] = useState(0)
-
-  async function loadBots() {
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      const { supabase } = await import('@/lib/supabase/client')
-      const { data } = await supabase.from('bots').select('*').eq('client_id', client.id).order('created_at', { ascending: true })
-      setBots((data as Bot[]) || [])
-    }
-    setLoaded(true)
-  }
-
-  if (!loaded) {
-    loadBots()
-  }
 
   // Build ordered server list: primary first, then extras
   const allServers: Array<{ ip: string; label: string | null; provider: string | null; status: string }> = []
