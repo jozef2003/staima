@@ -5,8 +5,8 @@ const useSupabase = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_
 
 async function getSupabase() {
   if (!useSupabase) return null
-  const { supabase } = await import('./supabase/client')
-  return supabase
+  const { createAuthClient } = await import('./supabase/ssr-client')
+  return createAuthClient()
 }
 
 export async function getClients(): Promise<Client[]> {
