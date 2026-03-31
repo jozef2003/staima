@@ -6,7 +6,10 @@ import { createAuthClient } from '@/lib/supabase/ssr-client'
 import { ClientOverview } from '@/components/client/client-overview'
 import { ClientMarlene } from '@/components/client/client-marlene'
 import { ClientChat } from '@/components/client/client-chat'
-import type { Client, Bot, Server } from '@/lib/supabase/types'
+import { ClientWorkflows } from '@/components/client/client-workflows'
+import { ClientTimeTracking } from '@/components/client/client-time-tracking'
+import { ClientInvoices } from '@/components/client/client-invoices'
+import type { Client, Bot, Server, Workflow, DeploymentLog, Invoice } from '@/lib/supabase/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,12 +23,18 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const client = clientRes.data as Client | null
   if (!client) notFound()
 
-  const [botsRes, serversRes] = await Promise.all([
+  const [botsRes, serversRes, workflowsRes, logsRes, invoicesRes] = await Promise.all([
     supabase.from('bots').select('*').eq('client_id', id).order('created_at', { ascending: true }),
     supabase.from('servers').select('*').eq('client_id', id),
+    supabase.from('workflows').select('*').eq('client_id', id).order('created_at', { ascending: true }),
+    supabase.from('deployment_log').select('*').eq('client_id', id).order('created_at', { ascending: false }),
+    supabase.from('invoices').select('*').eq('client_id', id).order('created_at', { ascending: false }),
   ])
   const bots = (botsRes.data ?? []) as Bot[]
   const servers = (serversRes.data ?? []) as Server[]
+  const workflows = (workflowsRes.data ?? []) as Workflow[]
+  const logs = (logsRes.data ?? []) as DeploymentLog[]
+  const invoices = (invoicesRes.data ?? []) as Invoice[]
 
   return (
     <div className="space-y-6">
@@ -42,10 +51,13 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="bg-card border border-border">
+        <TabsList className="bg-card border border-border flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Übersicht</TabsTrigger>
           <TabsTrigger value="marlene">Agent</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
+          <TabsTrigger value="skills">Skills</TabsTrigger>
+          <TabsTrigger value="activity">Aktivitäten</TabsTrigger>
+          {isAdmin && <TabsTrigger value="invoices">Rechnungen</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
@@ -59,6 +71,20 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
         <TabsContent value="chat">
           <ClientChat bots={bots} />
         </TabsContent>
+
+        <TabsContent value="skills">
+          <ClientWorkflows client={client} workflows={workflows} />
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <ClientTimeTracking client={client} logs={logs} />
+        </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="invoices">
+            <ClientInvoices client={client} invoices={invoices} />
+          </TabsContent>
+        )}
 
       </Tabs>
     </div>

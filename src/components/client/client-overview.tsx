@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Mail, Phone, Building2, User, Wifi, WifiOff, Server, Bot as BotIcon, Cpu, HardDrive, MemoryStick, KeyRound, UserPlus, Trash2, Check } from 'lucide-react'
+import { Mail, Phone, Building2, User, Wifi, WifiOff, Server, Bot as BotIcon, Cpu, HardDrive, MemoryStick, KeyRound, UserPlus, Trash2, Check, Target, Euro } from 'lucide-react'
 import type { Client, Bot } from '@/lib/supabase/types'
 import { cn } from '@/lib/utils'
 
@@ -53,6 +53,26 @@ function BotCard({ bot, liveStatus }: { bot: Bot; liveStatus?: string }) {
             {bot.role && <span>{bot.role}</span>}
             {bot.assigned_to && <span className="text-muted-foreground/60">· {bot.assigned_to}</span>}
           </div>
+          {bot.mission && (
+            <div className="flex items-start gap-1.5 mt-1.5 text-[11px] text-muted-foreground">
+              <Target className="h-3 w-3 shrink-0 mt-0.5" />
+              <span className="line-clamp-2">{bot.mission}</span>
+            </div>
+          )}
+          {(bot.budget_cap != null) && (
+            <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+              <Euro className="h-3 w-3 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                {bot.monthly_spend ?? 0}€ / {bot.budget_cap}€
+              </span>
+              <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full', (bot.monthly_spend ?? 0) / bot.budget_cap > 0.8 ? 'bg-red-500' : 'bg-teal-500')}
+                  style={{ width: `${Math.min(100, ((bot.monthly_spend ?? 0) / bot.budget_cap) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap gap-1 mt-2">
             {channels.map(ch => channelConfig[ch] && (
               <span key={ch} className={cn('text-[10px] px-1.5 py-0.5 rounded border font-medium', channelConfig[ch].color)}>
@@ -107,6 +127,7 @@ const STATS_URL_MAP: Record<string, string> = {
   '159.69.221.169': 'https://myty.agency/twilio/stats',
   '178.104.79.158': 'http://178.104.79.158:3002/stats',
   '94.130.99.75':   'http://94.130.99.75:3002/stats',
+  '159.69.19.59':   'http://159.69.19.59:3002/stats',
 }
 
 function ServerHealthCheck({ entry, bots, liveStatuses, primaryIp }: {

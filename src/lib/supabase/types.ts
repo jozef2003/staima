@@ -83,6 +83,9 @@ export interface Bot {
   role: string | null
   gateway_url: string | null
   gateway_token: string | null
+  mission: string | null
+  budget_cap: number | null
+  monthly_spend: number | null
   created_at: string
 }
 

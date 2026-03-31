@@ -182,6 +182,9 @@ export const mockBots: Bot[] = [
     role: 'Marketing Assistentin',
     gateway_url: null,
     gateway_token: null,
+    mission: null,
+    budget_cap: null,
+    monthly_spend: null,
     created_at: '2026-01-15T10:00:00Z',
   },
   {
@@ -199,6 +202,9 @@ export const mockBots: Bot[] = [
     role: 'Sales Support',
     gateway_url: null,
     gateway_token: null,
+    mission: null,
+    budget_cap: null,
+    monthly_spend: null,
     created_at: '2026-02-01T10:00:00Z',
   },
 ]
