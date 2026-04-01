@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Server, Menu, X, LogOut } from 'lucide-react'
+import { LayoutDashboard, Server, Menu, X, LogOut, BookOpen } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { createBrowserClient } from '@supabase/ssr'
@@ -15,6 +15,7 @@ const supabase = createBrowserClient(
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/servers', label: 'Server', icon: Server },
+  { href: '/playbook', label: 'Playbook', icon: BookOpen },
 ]
 
 export function Sidebar() {

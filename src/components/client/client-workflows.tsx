@@ -90,21 +90,6 @@ export function ClientWorkflows({ client, workflows }: { client: Client; workflo
         </div>
       )}
 
-      {/* Bot Capabilities */}
-      <div>
-        <h3 className="text-sm font-semibold mb-4">Bot-Fähigkeiten</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {botCapabilities.map((cap) => (
-            <Card key={cap.name} className="p-4 bg-card border-border">
-              <div className="flex items-center gap-3 mb-2">
-                {cap.icon}
-                <h4 className="font-medium text-sm">{cap.name}</h4>
-              </div>
-              <p className="text-xs text-muted-foreground">{cap.description}</p>
-            </Card>
-          ))}
-        </div>
-      </div>
 
       {workflows.length === 0 && (
         <Card className="p-8 bg-card border-border text-center">

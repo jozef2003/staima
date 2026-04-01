@@ -146,6 +146,7 @@ export function ClientChat({ bots }: { bots: Bot[] }) {
           gatewayToken: selectedBot.gateway_token,
           message: userMsg.content,
           sessionKey,
+          botId: selectedBot.id,
         }),
       })
 

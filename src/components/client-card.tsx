@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { Bot as BotIcon } from 'lucide-react'
 import type { Client } from '@/lib/supabase/types'
 import { CLIENT_STATUSES } from '@/lib/constants'
 import { cn } from '@/lib/utils'
@@ -18,7 +19,7 @@ function MarleneIndicator({ status }: { status: Client['marlene_status'] }) {
   return <div className={cn('status-dot', statusClass)} title={`Marlene: ${status}`} />
 }
 
-export function ClientCard({ client }: { client: Client }) {
+export function ClientCard({ client, botCount = 0, onlineBotCount = 0 }: { client: Client; botCount?: number; onlineBotCount?: number }) {
   const statusInfo = CLIENT_STATUSES.find(s => s.value === client.status)
 
   return (
@@ -59,8 +60,11 @@ export function ClientCard({ client }: { client: Client }) {
 
         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
           <span>€{client.monthly_fee.toLocaleString('de-DE')}/Mo</span>
-          {client.messaging_channel && (
-            <span className="capitalize">{client.messaging_channel}</span>
+          {botCount > 0 && (
+            <span className="flex items-center gap-1">
+              <BotIcon className="h-3 w-3" />
+              <span className={onlineBotCount > 0 ? 'text-teal-500' : ''}>{onlineBotCount}/{botCount}</span>
+            </span>
           )}
         </div>
       </Card>

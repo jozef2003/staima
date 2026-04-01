@@ -117,6 +117,8 @@ export async function getDashboardStats() {
   const totalHoursSavedWeekly = workflows.reduce((sum, w) => sum + (w.estimated_hours_saved_weekly || 0), 0)
   const mrr = payingClients.reduce((sum, c) => sum + c.monthly_fee, 0)
   const onlineBots = bots.filter(b => b.status === 'online')
+  const servers = await getAllServers()
+  const uniqueServerIps = new Set([...clients.map(c => c.vps_ip).filter(Boolean), ...servers.map(s => s.ip)])
 
   return {
     clients,
@@ -124,6 +126,7 @@ export async function getDashboardStats() {
     clientCount: payingClients.length,
     botCount: bots.length,
     onlineBotCount: onlineBots.length,
+    serverCount: uniqueServerIps.size,
     mrr,
     hoursThisWeek: totalHoursThisWeek,
     activeWorkflowCount: activeWorkflows.length,

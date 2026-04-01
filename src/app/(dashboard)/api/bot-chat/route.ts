@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { WebSocket } from 'ws'
+import { createClient } from '@supabase/supabase-js'
 
 const WS_TIMEOUT = 120_000
 
+// Sonnet 4.6 pricing per million tokens
+const PRICE_INPUT = 3.0
+const PRICE_OUTPUT = 15.0
+const PRICE_CACHE_READ = 0.30
+const PRICE_CACHE_CREATE = 3.75
+
 function toWsUrl(gatewayUrl: string): string {
-  // Keep trailing slash — nginx proxy requires it
   const url = gatewayUrl.endsWith('/') ? gatewayUrl : gatewayUrl + '/'
   return url
     .replace(/^https:\/\//, 'wss://')
@@ -15,15 +21,54 @@ function frame(id: string, method: string, params: Record<string, unknown>) {
   return JSON.stringify({ type: 'req', id, method, params })
 }
 
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  return createClient(url, key)
+}
+
+async function logUsage(botId: string, usage: { input: number; output: number; cacheRead: number; cacheCreate: number }) {
+  const sb = getSupabase()
+  if (!sb || !botId) return
+
+  const costUsd =
+    (usage.input / 1_000_000) * PRICE_INPUT +
+    (usage.output / 1_000_000) * PRICE_OUTPUT +
+    (usage.cacheRead / 1_000_000) * PRICE_CACHE_READ +
+    (usage.cacheCreate / 1_000_000) * PRICE_CACHE_CREATE
+
+  await sb.from('bot_usage').insert({
+    bot_id: botId,
+    input_tokens: usage.input,
+    output_tokens: usage.output,
+    cost_usd: costUsd,
+  })
+
+  // Update monthly_spend on the bot
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const { data } = await sb
+    .from('bot_usage')
+    .select('cost_usd')
+    .eq('bot_id', botId)
+    .gte('created_at', monthStart)
+
+  if (data) {
+    const totalUsd = data.reduce((sum, r) => sum + Number(r.cost_usd), 0)
+    const totalEur = totalUsd * 0.92 // rough USD to EUR
+    await sb.from('bots').update({ monthly_spend: Math.round(totalEur * 100) / 100 }).eq('id', botId)
+  }
+}
+
 export async function POST(request: NextRequest) {
-  const { gatewayUrl, gatewayToken, message, sessionKey: existingKey } = await request.json()
+  const { gatewayUrl, gatewayToken, message, sessionKey: existingKey, botId } = await request.json()
 
   if (!gatewayUrl || !gatewayToken || !message) {
     return NextResponse.json({ error: 'Missing params' }, { status: 400 })
   }
 
   const wsUrl = toWsUrl(gatewayUrl)
-  // Extract host for Origin fallback (e.g. "myty.agency")
   const host = new URL(gatewayUrl).host
 
   return new Promise<NextResponse>((resolve) => {
@@ -42,8 +87,6 @@ export async function POST(request: NextRequest) {
 
     let ws: WebSocket
     try {
-      // Set Origin header so OpenClaw's origin check passes
-      // (browser sends this automatically; Node.js doesn't, so we set it explicitly)
       const scheme = wsUrl.startsWith('wss') ? 'https' : 'http'
       ws = new WebSocket(wsUrl, {
         headers: {
@@ -61,9 +104,10 @@ export async function POST(request: NextRequest) {
     let phase: 'challenge' | 'connect' | 'send' | 'wait' = 'challenge'
     let reply = ''
     const instanceId = crypto.randomUUID()
+    let totalUsage = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0 }
 
     ws.on('open', () => {
-      // Wait for connect.challenge event from server before sending anything
+      // Wait for connect.challenge event from server
     })
 
     ws.on('message', (raw) => {
@@ -80,7 +124,6 @@ export async function POST(request: NextRequest) {
       }
       try { msg = JSON.parse(raw.toString()) } catch { return }
 
-      // Server event notifications
       if (msg.type === 'event') {
         const event = msg.event ?? ''
 
@@ -100,7 +143,6 @@ export async function POST(request: NextRequest) {
             },
             role: 'operator',
             scopes: ['operator.admin', 'operator.approvals', 'operator.pairing'],
-            // Device object required by schema; dangerouslyDisableDeviceAuth=true on server skips sig check
             device: { id: 'staima-api', publicKey: 'staima', signature: 'staima', signedAt: Date.now(), nonce },
             caps: ['tool-events'],
             userAgent: 'Staima/1.0',
@@ -109,20 +151,43 @@ export async function POST(request: NextRequest) {
           return
         }
 
-        // Streaming chat output (delta)
+        // Streaming chat output
         if (event === 'chat' && phase === 'wait') {
           const p = msg.payload as Record<string, unknown> | undefined
+
+          // Extract usage from any event that has it
+          if (p?.usage && typeof p.usage === 'object') {
+            const u = p.usage as Record<string, number>
+            if (u.input_tokens) totalUsage.input = u.input_tokens
+            if (u.output_tokens) totalUsage.output = u.output_tokens
+            if (u.cache_read_input_tokens) totalUsage.cacheRead = u.cache_read_input_tokens
+            if (u.cache_creation_input_tokens) totalUsage.cacheCreate = u.cache_creation_input_tokens
+          }
+
           if (p?.state === 'delta') {
-            const textContent = extractText(p.message)
-            if (textContent) reply = textContent  // delta has full text so far
+            const textContent = extractText(p.message) || extractText(p)
+            if (textContent) reply = textContent
           } else if (p?.state === 'final' || p?.state === 'aborted') {
             const textContent = extractText(p.message)
             if (textContent) reply = textContent
+
+            // Estimate usage if not provided by OpenClaw
+            if (totalUsage.input === 0 && totalUsage.output === 0) {
+              // Rough estimate: 1 token ≈ 4 chars
+              totalUsage.input = Math.ceil(message.length / 4) + 500 // +500 for system prompt overhead
+              totalUsage.output = Math.ceil((reply || '').length / 4)
+            }
+
+            // Log usage async (don't block response)
+            if (botId) {
+              logUsage(botId, totalUsage).catch(() => {})
+            }
+
             const check = filterOutput(reply)
             if (!check.safe) {
               done(NextResponse.json({ error: check.reason }, { status: 403 }))
             } else {
-              done(NextResponse.json({ reply: reply || 'Bot hat geantwortet.', sessionKey }))
+              done(NextResponse.json({ reply: reply || 'Keine Textantwort vom Bot.', sessionKey }))
             }
           } else if (p?.state === 'error') {
             done(NextResponse.json({ error: `Bot-Fehler: ${p.errorMessage ?? 'unbekannt'}` }, { status: 502 }))
@@ -132,7 +197,6 @@ export async function POST(request: NextRequest) {
         return
       }
 
-      // Response to our requests
       if (msg.type === 'res' && msg.id !== undefined) {
         if (!msg.ok) {
           const errMsg = (msg.error as { message?: string })?.message ?? 'Unknown error'
@@ -143,7 +207,6 @@ export async function POST(request: NextRequest) {
         const payload = msg.payload as Record<string, unknown> | undefined
 
         if (phase === 'connect') {
-          // Get the default session key from hello payload if we don't have one
           if (!sessionKey) {
             const snapshot = (payload as { snapshot?: { sessionDefaults?: { mainSessionKey?: string } } })?.snapshot
             sessionKey = snapshot?.sessionDefaults?.mainSessionKey ?? 'agent:main:main'
@@ -152,7 +215,6 @@ export async function POST(request: NextRequest) {
           sendChat()
         } else if (phase === 'send') {
           phase = 'wait'
-          // Waiting for chat event with state=final/aborted
         }
       }
     })
@@ -163,6 +225,7 @@ export async function POST(request: NextRequest) {
 
     ws.on('close', (code, reason) => {
       if (phase === 'wait' && reply) {
+        if (botId) logUsage(botId, totalUsage).catch(() => {})
         done(NextResponse.json({ reply, sessionKey }))
       } else if (!resolved) {
         done(NextResponse.json(
@@ -197,12 +260,11 @@ function extractText(message: unknown): string {
   return ''
 }
 
-// Output filter: block responses containing sensitive patterns
 const SENSITIVE_PATTERNS = [
-  /sk-ant-[a-zA-Z0-9\-_]{20,}/i,       // Anthropic API keys
-  /Bearer\s+[a-zA-Z0-9\-_]{20,}/i,     // Bearer tokens
-  /-----BEGIN [A-Z ]+-----/,            // Private keys / certs
-  /(?:password|passwort)\s*[:=]\s*\S+/i, // Passwords in output
+  /sk-ant-[a-zA-Z0-9\-_]{20,}/i,
+  /Bearer\s+[a-zA-Z0-9\-_]{20,}/i,
+  /-----BEGIN [A-Z ]+-----/,
+  /(?:password|passwort)\s*[:=]\s*\S+/i,
 ]
 
 function filterOutput(text: string): { safe: boolean; reason?: string } {

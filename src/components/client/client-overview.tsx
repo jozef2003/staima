@@ -23,10 +23,16 @@ const channelConfig: Record<string, { label: string; color: string }> = {
   nemoclaw:  { label: 'NemoClaw',  color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
 }
 
-function BotCard({ bot, liveStatus }: { bot: Bot; liveStatus?: string }) {
+type BotUsageData = { today: { costUsd: number; input: number; output: number }; month: { costUsd: number }; lifetime: { costUsd: number } }
+
+function BotCard({ bot, liveStatus, usage }: { bot: Bot; liveStatus?: string; usage?: BotUsageData }) {
   const status = botStatusConfig[liveStatus ?? bot.status] || botStatusConfig.offline
   const channels = (bot.messaging_channel ?? '').split(',').map(c => c.trim()).filter(Boolean)
   const hasNemoclaw = !!bot.sandbox_name
+  const usdToEur = 0.92
+  const todayEur = (usage?.today.costUsd ?? 0) * usdToEur
+  const monthEur = (usage?.month.costUsd ?? 0) * usdToEur
+  const lifetimeEur = (usage?.lifetime.costUsd ?? 0) * usdToEur
 
   return (
     <Card className="p-4 bg-card border-border hover:border-primary/30 transition-colors">
@@ -60,16 +66,29 @@ function BotCard({ bot, liveStatus }: { bot: Bot; liveStatus?: string }) {
             </div>
           )}
           {(bot.budget_cap != null) && (
-            <div className="flex items-center gap-1.5 mt-1 text-[11px]">
-              <Euro className="h-3 w-3 text-muted-foreground" />
-              <span className="text-muted-foreground">
-                {bot.monthly_spend ?? 0}€ / {bot.budget_cap}€
-              </span>
-              <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={cn('h-full rounded-full', (bot.monthly_spend ?? 0) / bot.budget_cap > 0.8 ? 'bg-red-500' : 'bg-teal-500')}
-                  style={{ width: `${Math.min(100, ((bot.monthly_spend ?? 0) / bot.budget_cap) * 100)}%` }}
-                />
+            <div className="space-y-1 mt-1.5">
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <Euro className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  {monthEur.toFixed(2)}€ / {bot.budget_cap}€
+                </span>
+                <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full', monthEur / bot.budget_cap > 0.8 ? 'bg-red-500' : 'bg-teal-500')}
+                    style={{ width: `${Math.min(100, (monthEur / bot.budget_cap) * 100)}%` }}
+                  />
+                </div>
+              </div>
+              {usage && (
+                <div className="flex items-center gap-3 text-[10px] text-muted-foreground/70">
+                  <span>Heute: {todayEur.toFixed(2)}€</span>
+                  <span>Gesamt: {lifetimeEur.toFixed(2)}€</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 mt-0.5 text-[9px] text-muted-foreground/50">
+                <span>~0.3¢/msg Haiku</span>
+                <span>~1¢/msg Sonnet</span>
+                <span>~5¢/msg Opus</span>
               </div>
             </div>
           )}
@@ -128,6 +147,7 @@ const STATS_URL_MAP: Record<string, string> = {
   '178.104.79.158': 'http://178.104.79.158:3002/stats',
   '94.130.99.75':   'http://94.130.99.75:3002/stats',
   '159.69.19.59':   'http://159.69.19.59:3002/stats',
+  '178.104.99.38':  'http://178.104.99.38:3002/stats',
 }
 
 function ServerHealthCheck({ entry, bots, liveStatuses, primaryIp }: {
@@ -376,6 +396,26 @@ export function ClientOverview({ client, bots, isAdmin = false, servers = [] }: 
   servers?: { id: string; ip: string; label: string | null; provider: string | null; status: string }[]
 }) {
   const [liveStatuses, setLiveStatuses] = useState<Record<string, string>>({})
+  const [usageData, setUsageData] = useState<Record<string, BotUsageData>>({})
+
+  useEffect(() => {
+    if (bots.length === 0) return
+    const fetchUsage = async () => {
+      try {
+        const res = await fetch('/api/bot-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ botIds: bots.map(b => b.id) }),
+        })
+        if (!res.ok) return
+        const data: Array<{ botId: string } & BotUsageData> = await res.json()
+        setUsageData(Object.fromEntries(data.map(d => [d.botId, d])))
+      } catch { /* ignore */ }
+    }
+    fetchUsage()
+    const interval = setInterval(fetchUsage, 60000)
+    return () => clearInterval(interval)
+  }, [bots])
 
   useEffect(() => {
     const botsWithUrl = bots.filter(b => b.gateway_url)
@@ -425,7 +465,7 @@ export function ClientOverview({ client, bots, isAdmin = false, servers = [] }: 
           {bots.length > 0 ? (
             <div className="space-y-2">
               {bots.map(bot => (
-                <BotCard key={bot.id} bot={bot} liveStatus={liveStatuses[bot.id]} />
+                <BotCard key={bot.id} bot={bot} liveStatus={liveStatuses[bot.id]} usage={usageData[bot.id]} />
               ))}
             </div>
           ) : (
