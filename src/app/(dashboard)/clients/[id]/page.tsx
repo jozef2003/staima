@@ -17,7 +17,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const { id } = await params
   const supabase = await createAuthClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = user?.email === 'jozef@staima.ai'
+  const isAdmin = user?.email?.endsWith('@staima.ai') ?? false
 
   const clientRes = await supabase.from('clients').select('*').eq('id', id).single()
   const client = clientRes.data as Client | null

@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 
-const ADMIN_EMAIL = 'jozef@staima.ai'
+const ADMIN_DOMAIN = '@staima.ai'
 
 async function getAdminUser() {
   const cookieStore = await cookies()
@@ -27,7 +27,7 @@ function adminClient() {
 // POST: create new portal user for a client
 export async function POST(request: NextRequest) {
   const user = await getAdminUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !user.email?.endsWith(ADMIN_DOMAIN)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 // PATCH: update password for existing portal user
 export async function PATCH(request: NextRequest) {
   const user = await getAdminUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !user.email?.endsWith(ADMIN_DOMAIN)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE: remove portal access
 export async function DELETE(request: NextRequest) {
   const user = await getAdminUser()
-  if (!user || user.email !== ADMIN_EMAIL) {
+  if (!user || !user.email?.endsWith(ADMIN_DOMAIN)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

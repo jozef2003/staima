@@ -36,7 +36,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  const isAdmin = user.email === 'jozef@staima.ai'
+  const isAdmin = user.email?.endsWith('@staima.ai') ?? false
   if (isAdmin) return response
 
   // Client user: look up their client_id

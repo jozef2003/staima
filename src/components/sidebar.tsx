@@ -25,7 +25,7 @@ export function Sidebar() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      setIsAdmin(user?.email === 'jozef@staima.ai')
+      setIsAdmin(user?.email?.endsWith('@staima.ai') ?? false)
     })
   }, [])
 
