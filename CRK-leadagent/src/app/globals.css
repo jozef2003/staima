@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* CRK-Markenfarben — weiß + blau, Open Sans (wie cr-k.ch). */
+@theme inline {
+  --color-crk-blue: #0e5fd9;
+  --color-crk-blue-dark: #0a2540;
+  --color-crk-blue-tint: #eaf2ff;
+  --color-crk-ink: #32373c;
+  --color-crk-border: #e4e8ee;
+  --font-sans: var(--font-open-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto;
+}
+
+html, body {
+  background: #ffffff;
+  color: var(--color-crk-ink);
+}
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}

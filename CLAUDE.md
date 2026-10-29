@@ -104,20 +104,9 @@ Was noch fehlt (mittlere Priorität):
 
 ---
 
-## Bekannte Probleme / Offene Punkte
+## OpenClaw Bot Setup — siehe `OPENCLAW-BOT-SETUP.md`
 
-### Gmail — Falsche Mailbox
-Sietch liest `jkapicak3@gmail.com` statt `sietch@myty.agency`.
-**Ursache:** OAuth-Token wurde mit falschem Google-Account erstellt.
-**Fix-Optionen:**
-1. Fabians Google-Account-Passwort → `get_oauth_token.py` lokal ausführen → Token hochladen
-2. Service Account + Domain-Wide Delegation (kein Passwort nötig, aber IT-Admin muss in Google Workspace Konsole einrichten)
-
-### Service Account Setup (wenn IT-Admin verfügbar)
-IT-Admin muss in Google Workspace Admin (admin.google.com):
-1. Service Account in GCP erstellen → JSON-Key exportieren
-2. In Admin-Konsole → Sicherheit → API-Steuerung → Domain-Wide Delegation → Client-ID + Scopes eintragen
-3. JSON-Key-Datei an Jozef senden
+Kompletter Workflow (Server-Setup, Telegram, Google OAuth, Dashboard-Aktivierung, Fallstricke) ist in `OPENCLAW-BOT-SETUP.md` dokumentiert. Für neue Bots immer dort nachschlagen.
 
 ---
 

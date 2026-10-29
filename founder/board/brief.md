@@ -1,0 +1,17 @@
+# Claudia
+
+- Was es ist: Eine private KI-Co-Worker-Plattform für Teams. Jede Person im Team bekommt einen eigenen, rund um die Uhr laufenden Assistenten (Chat in nativen iOS-/Mac-Apps und im Web), dazu Team-Räume, in denen der Assistent mit der ganzen Gruppe arbeitet. Er merkt sich Zusammenhänge langfristig, ist an die Werkzeuge des Teams angebunden (Mail, Kalender, Shopify, Meta Ads, GitHub), baut und hostet auf Zuruf einfache Webseiten und erledigt wiederkehrende Aufgaben (z. B. täglicher Lagerbestand-Alarm, Support-Postfach sortieren).
+- Für wen: E-Commerce-Marken, Agenturen und auch größere Firmen im deutschsprachigen Raum, die KI echte Arbeit im Team machen lassen wollen, deren Leute aber keine Entwickler sind und Claude Code nie selbst einrichten würden. Heutige Kunden: eine Marketing-Agentur (MyTy), eine Getränke-Marke mit Onlineshop (Dryll), eine Kunstberatung und ein Luxus-Designstudio desselben Inhabers (AMS, KRD), ein Content-Studio (VIR Studios).
+- Was es verkauft, zu welchem Preis: „KI-Betriebssystem als Service“ mit dem Gründer als Berater im Paket: Einrichtung, Anbindung an die Werkzeuge des Kunden, laufende Anpassung und Betrieb. Zielpreis 1.000 € pro Kunde (Mandant) und Monat, Untergrenze 500 €. Die heutigen fünf Kunden sind Piloten mit jeweils unterschiedlichen Konditionen; ein fester Preis ist noch nicht am Markt getestet.
+- Wo und wie: Online über claudia-os.com, nur auf Einladung mit Warteliste. Jeder Kunde bekommt eine abgeschottete Server-Umgebung (eigener Systemnutzer, eigene Daten, eigener Tunnel) auf Hetzner-Servern in Deutschland. Jede Person bringt ihr eigenes Claude-Abo mit (eigene Lizenz), die Modellkosten trägt also der Kunde, nicht Claudia. Kunden kommen bisher über das persönliche Netzwerk des Gründers; die Einrichtung macht der Gründer selbst.
+- Budget und Rahmen: Ein Gründer allein (Jozef), der alles selbst baut und betreibt: Apps, Server, Einrichtung, Support. Arbeitet fast Vollzeit daran. Ziel: 50.000 € monatlich wiederkehrender Umsatz (MRR) in 6 Monaten. Ein Werbe- oder Vertriebsbudget ist nicht genannt.
+
+## Weitere Fakten für den Beirat
+
+- Stand Oktober 2026: 5 Pilot-Mandanten live (MyTy, Dryll, AMS, KRD, VIR Studios), alle über das persönliche Netzwerk gewonnen. Pilotkonditionen sind unterschiedlich; ob und wie viel jeder Pilot zahlt, ist in diesem Brief nicht bekannt.
+- Rechenweg Ziel: 50.000 € MRR bei 1.000 € pro Mandant = 50 zahlende Mandanten in 6 Monaten (bei 500 € = 100).
+- Technik: Basis ist Claude Code (Anthropic) als Agent, eigene Bridge pro Mandant, Supabase als Steuerungs-Datenbank, Cloudflare-Tunnel, eigenes Hosting für Kundenseiten. Native Apps für iOS und Mac, dazu Web.
+- Gebaute Funktionen (Auswahl): persönliche Assistenten pro Person, Team-Gruppenchats (Slack-ähnlich), Agenten, die sich gegenseitig fragen, Meeting-Notizen, Notizen-Editor, Bildschirm-Video-Recorder, Support-Eingang für Shopify/Gmail, Lagerbestand-Alarm, Meta-Ads-Anbindung, Creator-Programm für einen Onlineshop, Seiten bauen und hosten.
+- Abhängigkeit: Jeder Nutzer braucht ein eigenes Claude-Abo; Logins laufen teils nach ~30 Tagen ab und müssen erneuert werden. Die Plattform hängt vollständig an einem Modell-Anbieter.
+- Betrieb: Der Gründer richtet jeden Mandanten selbst per Skript auf eigenen Servern ein und macht den Support. Die Server werden mit anderen Projekten geteilt.
+- Der Gründer betreibt parallel weitere Projekte (u. a. eine Lauf-App ohne Product-Market-Fit, einen Trading-Bot).

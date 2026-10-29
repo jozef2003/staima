@@ -83,6 +83,8 @@ export interface Bot {
   role: string | null
   gateway_url: string | null
   gateway_token: string | null
+  bot_kind: 'openclaw' | 'claude_code' | null
+  capabilities: string[] | null
   mission: string | null
   budget_cap: number | null
   monthly_spend: number | null

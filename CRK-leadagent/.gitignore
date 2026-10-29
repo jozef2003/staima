@@ -1,0 +1,21 @@
+node_modules
+.next
+out
+dist
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+.vercel
+
+# Python pipeline
+server/.venv
+server/__pycache__
+server/**/__pycache__
+server/*.egg-info
+server/.pytest_cache
+
+# Local crawl output / dumps
+server/dumps
+server/cache

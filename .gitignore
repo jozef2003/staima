@@ -53,3 +53,10 @@ bots/lead-scraper/logs/
 bots/**/authorized_user.json
 bots/**/gogcli_token.json
 bots/**/client_secret.json
+
+# Geheimnisse und eigene Repos bleiben lokal (29.10.2026)
+bots/sietch/*token*.json
+bots/sietch/client_secret*.json
+bots/sietch/*authorized_user*.json
+clipper/
+Untitled

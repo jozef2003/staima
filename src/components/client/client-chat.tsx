@@ -20,14 +20,14 @@ function BotSelector({ bots, selected, onSelect }: {
   selected: Bot | null
   onSelect: (bot: Bot) => void
 }) {
-  const chatBots = bots.filter(b => b.gateway_url && b.gateway_token)
+  const chatBots = bots.filter(b => (b.gateway_url && b.gateway_token) || b.bot_kind === 'claude_code')
 
   if (chatBots.length === 0) {
     return (
       <Card className="p-6 text-center border-dashed">
         <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-        <p className="text-sm text-muted-foreground">Kein Bot mit Gateway konfiguriert.</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Setze gateway_url + gateway_token im Bot-Setup.</p>
+        <p className="text-sm text-muted-foreground">Kein Bot mit Chat konfiguriert.</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">Setze gateway_url + gateway_token (OpenClaw) oder bot_kind=claude_code.</p>
       </Card>
     )
   }
@@ -106,7 +106,7 @@ async function pollCallResult(callSid: string, onDone: (summary: string) => void
 
 export function ClientChat({ bots }: { bots: Bot[] }) {
   const [selectedBot, setSelectedBot] = useState<Bot | null>(
-    bots.find(b => b.gateway_url && b.gateway_token) ?? null
+    bots.find(b => (b.gateway_url && b.gateway_token) || b.bot_kind === 'claude_code') ?? null
   )
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -138,23 +138,29 @@ export function ClientChat({ bots }: { bots: Bot[] }) {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/bot-chat', {
+      const isClaudeCode = selectedBot.bot_kind === 'claude_code'
+      const apiUrl = isClaudeCode ? '/api/claude-chat' : '/api/bot-chat'
+      const body = isClaudeCode
+        ? { serverIp: selectedBot.server_ip, message: userMsg.content }
+        : {
+            gatewayUrl: selectedBot.gateway_url,
+            gatewayToken: selectedBot.gateway_token,
+            message: userMsg.content,
+            sessionKey,
+            botId: selectedBot.id,
+          }
+
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gatewayUrl: selectedBot.gateway_url,
-          gatewayToken: selectedBot.gateway_token,
-          message: userMsg.content,
-          sessionKey,
-          botId: selectedBot.id,
-        }),
+        body: JSON.stringify(body),
       })
 
       const data = await res.json()
 
       if (data.sessionKey && !sessionKey) setSessionKey(data.sessionKey)
 
-      const rawReply: string = data.reply ?? data.error ?? 'Keine Antwort.'
+      const rawReply: string = data.response ?? data.reply ?? data.error ?? 'Keine Antwort.'
       const callMatch = rawReply.match(CALL_TAG_RE)
       const displayReply = rawReply.replace(CALL_TAG_RE, '').trim()
 
@@ -209,7 +215,24 @@ export function ClientChat({ bots }: { bots: Bot[] }) {
         <BotSelector bots={bots} selected={selectedBot} onSelect={setSelectedBot} />
       </div>
 
-      {selectedBot && (
+      {selectedBot && selectedBot.bot_kind === 'claude_code' && (
+        <Card className="p-6 text-center border-dashed">
+          <MessageSquare className="h-10 w-10 text-violet-500/50 mx-auto mb-3" />
+          <p className="font-medium text-sm">Claude Code Bot läuft auf Telegram</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            <span className="font-mono">{selectedBot.bot_name}</span> ist via Telegram erreichbar —
+            nicht via Dashboard-Chat.
+          </p>
+          <p className="text-xs text-muted-foreground/70 mt-3">
+            Server: <span className="font-mono">{selectedBot.server_ip}</span>
+          </p>
+          <p className="text-xs text-violet-500 mt-4">
+            → Öffne @Alfred4everBot in Telegram zum Chatten
+          </p>
+        </Card>
+      )}
+
+      {selectedBot && selectedBot.bot_kind !== 'claude_code' && (
         <Card className="flex flex-col bg-card border-border" style={{ height: 520 }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
@@ -221,15 +244,17 @@ export function ClientChat({ bots }: { bots: Bot[] }) {
               <span className="font-medium text-sm">{selectedBot.bot_name}</span>
               <span className="text-xs text-muted-foreground font-mono">{selectedBot.ai_model}</span>
             </div>
-            <a
-              href={`${selectedBot.gateway_url}/#token=${selectedBot.gateway_token}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              OpenClaw
-            </a>
+            {false ? null : (
+              <a
+                href={`${selectedBot.gateway_url}/#token=${selectedBot.gateway_token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                OpenClaw
+              </a>
+            )}
           </div>
 
           {/* Messages */}

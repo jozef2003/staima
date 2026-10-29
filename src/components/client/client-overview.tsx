@@ -109,6 +109,18 @@ function BotCard({ bot, liveStatus, usage }: { bot: Bot; liveStatus?: string; us
               </span>
             )}
           </div>
+          {bot.capabilities && bot.capabilities.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide mb-1.5 font-medium">Capabilities</p>
+              <div className="flex flex-wrap gap-1">
+                {bot.capabilities.map((cap, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                    {cap}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Card>
@@ -119,6 +131,8 @@ type ServerStats = {
   ram: { total: number; used: number; free: number }
   disk: { total: number; used: number; free: number }
   cpu: { used: number }
+  gpu?: { ollama_loaded_mb: number; models: string[] }
+  services?: Record<string, string>
 }
 
 type ServerEntry = { ip: string; label: string | null; provider: string | null; status: string }
@@ -148,6 +162,7 @@ const STATS_URL_MAP: Record<string, string> = {
   '94.130.99.75':   'http://94.130.99.75:3002/stats',
   '159.69.19.59':   'http://159.69.19.59:3002/stats',
   '178.104.99.38':  'http://178.104.99.38:3002/stats',
+  '37.27.48.158':   'http://37.27.48.158:3003/stats',
 }
 
 function ServerHealthCheck({ entry, bots, liveStatuses, primaryIp }: {
@@ -221,6 +236,32 @@ function ServerHealthCheck({ entry, bots, liveStatuses, primaryIp }: {
           <StatBar value={stats.cpu.used} label={`CPU · ${stats.cpu.used}%`} icon={<Cpu className="h-3 w-3" />} />
           <StatBar value={ramPct!} label={`RAM · ${fmt(stats.ram.used)} / ${fmt(stats.ram.total)}`} icon={<MemoryStick className="h-3 w-3" />} />
           <StatBar value={diskPct!} label={`Disk · ${fmt(stats.disk.used)} / ${fmt(stats.disk.total)}`} icon={<HardDrive className="h-3 w-3" />} />
+          {stats.gpu && stats.gpu.ollama_loaded_mb > 0 && (
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <Cpu className="h-3 w-3" />
+              <span>Ollama: {stats.gpu.ollama_loaded_mb}MB geladen</span>
+              {stats.gpu.models.length > 0 && (
+                <span className="font-mono text-[10px] text-violet-400">{stats.gpu.models.join(', ')}</span>
+              )}
+            </div>
+          )}
+          {stats.services && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {Object.entries(stats.services).map(([name, status]) => (
+                <span
+                  key={name}
+                  className={cn(
+                    'text-[9px] px-1.5 py-0.5 rounded border font-mono',
+                    status === 'active'
+                      ? 'bg-teal-500/10 text-teal-500 border-teal-500/20'
+                      : 'bg-red-500/10 text-red-500 border-red-500/20'
+                  )}
+                >
+                  {name.replace('clipper-', '')}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </Card>
